@@ -127,3 +127,95 @@ export function createServerSetup(opts: {
     }
   }
 }
+
+/**
+ * rsbuild 1.5.x shim: `server.setup` is a v2 API that is silently ignored
+ * in 1.5.x. This function returns a `dev.setupMiddlewares` handler that
+ * provides equivalent functionality using the 1.5.x API.
+ *
+ * The handler receives { unshift, push } for middleware ordering plus
+ * serverOptions.environments for loading the SSR bundle.
+ */
+export function createSetupMiddlewaresShim(opts: { serverFnBasePath: string }) {
+  const serverFnBase = opts.serverFnBasePath
+
+  return (
+    middlewares: {
+      unshift: (...args: Array<any>) => void
+      push: (...args: Array<any>) => void
+    },
+    serverOptions: { environments?: Record<string, any> },
+  ) => {
+    const handleSSR: SSRMiddleware = async (req, res, next) => {
+      const ssrEnv =
+        serverOptions.environments?.[RSBUILD_ENVIRONMENT_NAMES.server]
+
+      if (!ssrEnv) {
+        console.error(
+          `[tanstack-start] SSR environment "${RSBUILD_ENVIRONMENT_NAMES.server}" not found`,
+        )
+        return next()
+      }
+
+      try {
+        const serverEntry = (await ssrEnv.loadBundle('index')) as {
+          default: { fetch: (req: Request) => Promise<Response> }
+        }
+
+        if (req.originalUrl) {
+          req.url = req.originalUrl
+        }
+
+        const webReq = new NodeRequest({ req, res })
+        return sendNodeResponse(res, await serverEntry.default.fetch(webReq))
+      } catch (e) {
+        console.error('[tanstack-start] SSR error:', e)
+        const webReq = new NodeRequest({ req, res })
+        if (webReq.headers.get('content-type')?.includes('application/json')) {
+          return sendNodeResponse(
+            res,
+            new Response(
+              JSON.stringify({
+                status: 500,
+                unhandled: true,
+                message: 'HTTPError',
+              }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } },
+            ),
+          )
+        }
+        return sendNodeResponse(
+          res,
+          new Response(
+            `<!DOCTYPE html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>Error</title></head>
+  <body>
+    <h1>Internal Server Error</h1>
+    <pre>${e instanceof Error ? e.message : String(e)}</pre>
+  </body>
+</html>`,
+            { status: 500, headers: { 'Content-Type': 'text/html' } },
+          ),
+        )
+      }
+    }
+
+    // Server function requests BEFORE built-in middleware
+    middlewares.unshift(
+      async (
+        req: IncomingMessage & { originalUrl?: string },
+        res: ServerResponse,
+        next: () => void,
+      ) => {
+        if ((req.url || '/').startsWith(serverFnBase)) {
+          return handleSSR(req, res, next)
+        }
+        return next()
+      },
+    )
+
+    // SSR handler AFTER built-in middleware (catches page navigations)
+    middlewares.push(handleSSR)
+  }
+}

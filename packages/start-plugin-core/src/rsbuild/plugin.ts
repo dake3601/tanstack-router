@@ -17,7 +17,7 @@ import {
   START_MANIFEST_PLACEHOLDER,
   registerVirtualModules,
 } from './virtual-modules'
-import { createServerSetup } from './dev-server'
+import { createServerSetup, createSetupMiddlewaresShim } from './dev-server'
 import { registerClientBuildCapture } from './normalized-client-build'
 import { registerRouterPlugins } from './start-router-plugin'
 import type { ServerFn } from '../start-compiler/types'
@@ -187,6 +187,11 @@ export function tanStackStartRsbuild(
                 dev: {
                   lazyCompilation: false,
                   ...(rscEnabled ? { liveReload: false } : {}),
+                  setupMiddlewares: [
+                    createSetupMiddlewaresShim({
+                      serverFnBasePath: serverFnBase,
+                    }),
+                  ],
                 },
               }
             : {}),
@@ -195,7 +200,9 @@ export function tanStackStartRsbuild(
             alias: environmentPlan.alias,
           },
           output: {
-            distPath: 'dist',
+            distPath: {
+              root: 'dist',
+            },
           },
         })
       })

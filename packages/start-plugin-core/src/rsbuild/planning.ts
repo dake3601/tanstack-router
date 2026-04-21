@@ -95,7 +95,6 @@ export function createRsbuildEnvironmentPlan(opts: {
           },
           output: {
             target: 'web',
-            module: true,
             distPath: {
               root: opts.clientOutputDirectory,
             },
