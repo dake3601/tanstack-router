@@ -719,8 +719,9 @@ function rebuildModulesContaining(
   compilation: RspackCompilationExtended,
   identifierFragment: string,
 ): Promise<void> {
+  const normalizedFragment = normalizePath(identifierFragment)
   const modulesToRebuild = Array.from(compilation.modules).filter((mod) =>
-    mod.identifier().includes(identifierFragment),
+    normalizePath(mod.identifier()).includes(normalizedFragment),
   )
 
   if (modulesToRebuild.length === 0) {
