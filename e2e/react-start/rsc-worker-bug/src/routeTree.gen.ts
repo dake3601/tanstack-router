@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkerBugRouteImport } from './routes/worker-bug'
+import { Route as ServerFnBugRouteImport } from './routes/server-fn-bug'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WorkerBugRoute = WorkerBugRouteImport.update({
   id: '/worker-bug',
   path: '/worker-bug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServerFnBugRoute = ServerFnBugRouteImport.update({
+  id: '/server-fn-bug',
+  path: '/server-fn-bug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/server-fn-bug': typeof ServerFnBugRoute
   '/worker-bug': typeof WorkerBugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/server-fn-bug': typeof ServerFnBugRoute
   '/worker-bug': typeof WorkerBugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/server-fn-bug': typeof ServerFnBugRoute
   '/worker-bug': typeof WorkerBugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/worker-bug'
+  fullPaths: '/' | '/server-fn-bug' | '/worker-bug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/worker-bug'
-  id: '__root__' | '/' | '/worker-bug'
+  to: '/' | '/server-fn-bug' | '/worker-bug'
+  id: '__root__' | '/' | '/server-fn-bug' | '/worker-bug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ServerFnBugRoute: typeof ServerFnBugRoute
   WorkerBugRoute: typeof WorkerBugRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/worker-bug'
       fullPath: '/worker-bug'
       preLoaderRoute: typeof WorkerBugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/server-fn-bug': {
+      id: '/server-fn-bug'
+      path: '/server-fn-bug'
+      fullPath: '/server-fn-bug'
+      preLoaderRoute: typeof ServerFnBugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ServerFnBugRoute: ServerFnBugRoute,
   WorkerBugRoute: WorkerBugRoute,
 }
 export const routeTree = rootRouteImport
