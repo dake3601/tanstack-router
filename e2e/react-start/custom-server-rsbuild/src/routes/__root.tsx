@@ -4,7 +4,13 @@ import {
   Scripts,
   createRootRoute,
 } from '@tanstack/react-router'
+import { CustomScripts } from '../CustomScripts'
 import '../styles/app.css'
+
+// `import.meta.env.CJS` is injected by rsbuild's `source.define`.
+const SCRIPTS_COMPONENT: typeof Scripts = import.meta.env.CJS
+  ? (CustomScripts as typeof Scripts)
+  : Scripts
 
 export const Route = createRootRoute({
   head: () => ({
@@ -22,10 +28,11 @@ function RootComponent() {
     <html>
       <head>
         <HeadContent />
+        {import.meta.env.CJS && <script src="/static/js/index.js" defer />}
       </head>
       <body>
         <Outlet />
-        <Scripts />
+        <SCRIPTS_COMPONENT />
       </body>
     </html>
   )
