@@ -13,4 +13,7 @@ export default defineConfig({
       root: outDir,
     },
   },
+  performance: {
+    buildCache: true,
+  },
 })

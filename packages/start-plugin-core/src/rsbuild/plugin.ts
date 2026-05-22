@@ -28,6 +28,10 @@ import { createServerSetup } from './dev-server'
 import { registerClientBuildCapture } from './normalized-client-build'
 import { registerRouterPlugins } from './start-router-plugin'
 import { postBuildWithRsbuild } from './post-build'
+import {
+  loadPersistedServerFns,
+  savePersistedServerFns,
+} from './persisted-server-fns'
 import { enableSwcReactServerComponents } from './swc-rsc'
 import type { ServerFn } from '../start-compiler/types'
 import type { TanStackStartRsbuildPluginCoreOptions } from './types'
@@ -86,6 +90,7 @@ export function tanStackStartRsbuild(
   let devServerRef: Pick<RsbuildDevServer, 'sockWrite'> | null = null
   const serverFnsById: Record<string, ServerFn> = {}
   let updateServerFnResolver: (() => void) | undefined
+  let lastPersistedJson: string | undefined
 
   return {
     name: 'tanstack-start-rsbuild',
@@ -98,6 +103,18 @@ export function tanStackStartRsbuild(
           typeof rsbuildConfig.root === 'string'
             ? rsbuildConfig.root
             : process.cwd()
+
+        // Hydrate the server-fn registry from disk before any module is
+        // compiled. Without this, an rspack persistent-cache hit skips the
+        // StartCompiler transform and its `onServerFnsById` side effect,
+        // leaving the resolver manifest empty for that fn on warm starts.
+        if (lastPersistedJson === undefined) {
+          const persisted = loadPersistedServerFns(root)
+          for (const [id, fn] of Object.entries(persisted)) {
+            if (!serverFnsById[id]) serverFnsById[id] = fn
+          }
+          lastPersistedJson = JSON.stringify(persisted)
+        }
 
         const serverBase = rsbuildConfig.server?.base
         const assetPrefix = rsbuildConfig.output?.assetPrefix
@@ -679,6 +696,20 @@ export function tanStackStartRsbuild(
         const clientBuild = getClientBuild()
         if (clientBuild) {
           virtualModuleState.updateManifest(clientBuild)
+        }
+
+        // Snapshot the registry so the next warm dev start hydrates it before
+        // any transforms run. Quick check on the serialized payload skips the
+        // common HMR case where no server fn changed.
+        if (api.context.action === 'dev') {
+          const serialized = JSON.stringify(serverFnsById)
+          if (serialized !== lastPersistedJson) {
+            savePersistedServerFns(
+              resolvedStartConfig.root || process.cwd(),
+              serverFnsById,
+            )
+            lastPersistedJson = serialized
+          }
         }
       })
 
